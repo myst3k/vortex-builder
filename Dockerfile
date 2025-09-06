@@ -6,7 +6,7 @@ WORKDIR /app
 # Build argument for mold version (can be overridden)
 ARG MOLD_VERSION=2.40.4
 
-# Install build tools including mold linker, clang, and sccache
+# Install build tools including mold linker (x86_64), clang, and sccache
 RUN apt-get update && apt-get install -y \
     curl \
     clang \

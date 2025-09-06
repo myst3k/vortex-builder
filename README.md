@@ -2,10 +2,16 @@
 
 Pre-built Docker base image with optimized Rust build tools for fast compilation.
 
+## Platform Support
+
+**x86_64/amd64 only** - This image is built specifically for Intel/AMD 64-bit processors.
+
+ARM/Apple Silicon users should build locally or adapt the Dockerfile for their platform.
+
 ## Features
 
 - **cargo-chef** for Docker layer caching
-- **mold v2.40.4** linker for faster linking
+- **mold** linker for faster linking (auto-updates to latest)
 - **clang** compiler for mold support
 - **sccache** for compilation caching
 - Pre-configured for fast parallel builds
