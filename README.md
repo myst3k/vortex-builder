@@ -31,11 +31,13 @@ docker pull ghcr.io/myst3k/vortex-builder:latest
 
 ## Automated Builds
 
-This image is automatically rebuilt:
-- When the base image (cargo-chef) updates
-- On changes to the Dockerfile
-- Daily check for base image updates
-- Manually via GitHub Actions
+This image is automatically rebuilt when:
+- The base image (cargo-chef) updates
+- A new version of mold is released
+- Changes are made to the Dockerfile
+- Manually triggered via GitHub Actions
+
+Daily checks ensure we stay up-to-date with the latest stable releases.
 
 ## Tags
 

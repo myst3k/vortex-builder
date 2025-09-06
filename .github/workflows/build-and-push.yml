@@ -9,7 +9,7 @@ on:
       - '.github/workflows/build-and-push.yml'
   workflow_dispatch:
   schedule:
-    # Check daily for base image updates
+    # Check daily for updates
     - cron: '0 0 * * *'
 
 env:
@@ -18,13 +18,22 @@ env:
   BASE_IMAGE: lukemathwalker/cargo-chef:latest-rust-1
 
 jobs:
-  check-base-image:
+  check-for-updates:
     runs-on: ubuntu-latest
     outputs:
       needs-rebuild: ${{ steps.check.outputs.needs-rebuild }}
       base-digest: ${{ steps.check.outputs.base-digest }}
+      mold-version: ${{ steps.mold.outputs.version }}
     steps:
-      - name: Check base image for updates
+      - name: Check for latest mold version
+        id: mold
+        run: |
+          # Get the latest mold release version from GitHub
+          LATEST_MOLD=$(curl -s https://api.github.com/repos/rui314/mold/releases/latest | jq -r '.tag_name' | sed 's/^v//')
+          echo "Latest mold version: $LATEST_MOLD"
+          echo "version=$LATEST_MOLD" >> $GITHUB_OUTPUT
+      
+      - name: Check base image and mold for updates
         id: check
         run: |
           # Get the digest of the base image
@@ -32,27 +41,43 @@ jobs:
           echo "Base image digest: $BASE_DIGEST"
           echo "base-digest=$BASE_DIGEST" >> $GITHUB_OUTPUT
           
-          # Check if we have a previous build with this digest
+          NEEDS_REBUILD=false
+          
+          # Check if we have a previous build
           if docker manifest inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest 2>/dev/null; then
             # Get the labels from our current image
             CURRENT_BASE=$(docker manifest inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest | \
               jq -r '.annotations."org.opencontainers.image.base.digest"' || echo "none")
+            CURRENT_MOLD=$(docker manifest inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest | \
+              jq -r '.annotations."mold.version"' || echo "none")
             
-            if [ "$CURRENT_BASE" = "$BASE_DIGEST" ]; then
-              echo "Base image hasn't changed, skipping rebuild"
-              echo "needs-rebuild=false" >> $GITHUB_OUTPUT
-            else
-              echo "Base image has changed, rebuilding"
-              echo "needs-rebuild=true" >> $GITHUB_OUTPUT
+            echo "Current base digest: $CURRENT_BASE"
+            echo "Current mold version: $CURRENT_MOLD"
+            echo "Latest mold version: ${{ steps.mold.outputs.version }}"
+            
+            if [ "$CURRENT_BASE" != "$BASE_DIGEST" ]; then
+              echo "Base image has changed"
+              NEEDS_REBUILD=true
+            fi
+            
+            if [ "$CURRENT_MOLD" != "${{ steps.mold.outputs.version }}" ]; then
+              echo "Mold version has changed"
+              NEEDS_REBUILD=true
+            fi
+            
+            if [ "$NEEDS_REBUILD" = "false" ]; then
+              echo "No updates needed, skipping rebuild"
             fi
           else
             echo "No existing image found, building"
-            echo "needs-rebuild=true" >> $GITHUB_OUTPUT
+            NEEDS_REBUILD=true
           fi
+          
+          echo "needs-rebuild=$NEEDS_REBUILD" >> $GITHUB_OUTPUT
 
   build-and-push:
-    needs: check-base-image
-    if: needs.check-base-image.outputs.needs-rebuild == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: check-for-updates
+    if: needs.check-for-updates.outputs.needs-rebuild == 'true' || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -84,8 +109,9 @@ jobs:
           flavor: |
             latest=true
           labels: |
-            org.opencontainers.image.base.digest=${{ needs.check-base-image.outputs.base-digest }}
+            org.opencontainers.image.base.digest=${{ needs.check-for-updates.outputs.base-digest }}
             org.opencontainers.image.base.image=${{ env.BASE_IMAGE }}
+            mold.version=${{ needs.check-for-updates.outputs.mold-version }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -95,5 +121,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            MOLD_VERSION=${{ needs.check-for-updates.outputs.mold-version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

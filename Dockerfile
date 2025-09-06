@@ -3,11 +3,14 @@ FROM lukemathwalker/cargo-chef:latest-rust-1
 
 WORKDIR /app
 
+# Build argument for mold version (can be overridden)
+ARG MOLD_VERSION=2.40.4
+
 # Install build tools including mold linker, clang, and sccache
 RUN apt-get update && apt-get install -y \
     curl \
     clang \
-    && curl -L https://github.com/rui314/mold/releases/download/v2.40.4/mold-2.40.4-x86_64-linux.tar.gz | tar -xz -C /usr/local --strip-components=1 \
+    && curl -L https://github.com/rui314/mold/releases/download/v${MOLD_VERSION}/mold-${MOLD_VERSION}-x86_64-linux.tar.gz | tar -xz -C /usr/local --strip-components=1 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
