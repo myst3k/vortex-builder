@@ -78,9 +78,11 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest
+            type=raw,value=latest,priority=1000
             type=raw,value={{date 'YYYYMMDD'}}
             type=sha,prefix={{branch}}-
+          flavor: |
+            latest=true
           labels: |
             org.opencontainers.image.base.digest=${{ needs.check-base-image.outputs.base-digest }}
             org.opencontainers.image.base.image=${{ env.BASE_IMAGE }}
