@@ -101,13 +101,16 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: |
+            name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},enable=true
           tags: |
-            type=raw,value=latest,priority=1000
-            type=raw,value={{date 'YYYYMMDD'}}
-            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}},priority=1000
+            type=raw,value={{date 'YYYYMMDD'}},enable={{is_default_branch}}
+            type=sha,prefix={{branch}}-,priority=100
           flavor: |
-            latest=true
+            latest=auto
+            prefix=
+            suffix=
           labels: |
             org.opencontainers.image.base.digest=${{ needs.check-for-updates.outputs.base-digest }}
             org.opencontainers.image.base.image=${{ env.BASE_IMAGE }}
